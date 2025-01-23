@@ -17,15 +17,13 @@ class MainAgent:
         self.zone = "Feralas"
         self.time = "night"
 
-        print("MainAgent setup complete")
-
 
 def update_screen(agent):
 
     t0 = time.time()
     while True:
-        agent.cur_img = ImageGrab.grab()
-        agent.cur_img = np.array(agent.cur_img)
+        agent.cur_img_grab = ImageGrab.grab()
+        agent.cur_img = np.array(agent.cur_img_grab)
         agent.cur_img = cv.cvtColor(agent.cur_img, cv.COLOR_RGB2BGR)
         agent.cur_imgHSV = cv.cvtColor(agent.cur_img, cv.COLOR_BGR2HSV)
 

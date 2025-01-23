@@ -15,7 +15,7 @@ class FishingAgent:
         self.fishing_target = cv.imread(
             os.path.join(
                 here_path,
-                "assets", "fishing_target.png"
+                "assets", "fishing_target1.png"
             )
         )
 
@@ -41,7 +41,7 @@ class FishingAgent:
 
     def move_to_lure(self):
         if self.lure_location:
-            pyautogui.moveTo(self.lure_location[0] + 25, self.lure_location[1], .45, pyautogui.easeOutQuad)
+            pyautogui.moveTo(self.lure_location[0], self.lure_location[1], .45, pyautogui.easeOutQuad)
             self.watch_lure()
         else:
             print("Warning: Attempted to move to lure_location, but lure_location is None (fishing_agent.py line 32)")
@@ -51,19 +51,21 @@ class FishingAgent:
     def watch_lure(self):
         time_start = time.time()
         while True:
-            pixel = self.main_agent.cur_imgHSV[self.lure_location[1] + 25][self.lure_location[0]]
+            pixel = self.main_agent.cur_imgHSV[self.lure_location[1]][self.lure_location[0]]
             if self.main_agent.zone == "Dustwallow":
                 if pixel[0] >= 20 or pixel[1] < 60 or pixel[2] < 40 or time.time() - time_start >= 30:
                     print("Bite detected!")
                     break
             elif self.main_agent.zone == "Feralas" and self.main_agent.time == "night":
-                if pixel[0] >= 70:
+                if pixel[0] <= 70 or pixel[1] <= 100 or pixel[2] <= 70:
                     print("Bite detected!")
+                    print(pixel)
+                    time.sleep(1)
                     break
                 if time.time() - time_start >= 30:
                     print("Fishing timeout!")
                     break
-            elif self.main_agent.zone == "Feralas":
+            elif self.main_agent.zone == "Dustwallow":
                 print("Feralas")
                 if pixel[0] >= 60 or time.time() - time_start >= 30:
                     print("Bite detected!")
@@ -83,14 +85,14 @@ class FishingAgent:
         if self.main_agent.cur_img is None:
             print("Image capture not found!  Did you start the screen capture thread?")
             return
-        print("Starting fishing thread in 10 seconds...")
-        time.sleep(10)
+        print("Starting fishing thread in 3 seconds...")
+        time.sleep(3)
 
-        print("Switching to fishing hotbar (hotbar 4)")
-        pyautogui.keyDown('shift')
-        pyautogui.press('4')
-        pyautogui.keyUp('shift')
-        time.sleep(1)
+        # print("Switching to fishing hotbar (hotbar 4)")
+        # pyautogui.keyDown('shift')
+        # pyautogui.press('4')
+        # pyautogui.keyUp('shift')
+        # time.sleep(1)
 
         self.fishing_thread = Thread(
             target=self.cast_lure,
