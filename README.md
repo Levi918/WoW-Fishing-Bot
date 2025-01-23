@@ -1,2 +1,2 @@
 # WoW-Fishing-Bot
-My first WoW Fishing Bot using Python OpenCV
+WoW Fishing Bot using Python OpenCV
