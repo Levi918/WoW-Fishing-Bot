@@ -1,79 +1,71 @@
+from customtkinter import *
 from PIL import Image, ImageGrab
 import numpy as np
 import cv2 as cv
 import time
 from threading import Thread
 from fishing.fishing_agent import FishingAgent
+import map_reader
+from gui import FishingApp
+import pytesseract
 
 
 class MainAgent:
     def __init__(self):
         self.agents = []
         self.fishing_thread = None
+        self.fishing_agent = None
 
         self.cur_img = None
         self.cur_imgHSV = None
 
-        self.zone = "Feralas"
-        self.time = "night"
+        self.zone = None
+        self.cur_time = None
+        self.fps = None
 
+        self.start_screen_capture()
 
-def update_screen(agent):
+    def start_screen_capture(self):
+        update_screen_thread = Thread(
+            target=self.update_screen,
+            name="update screen thread",
+            daemon=True,
+        )
+        update_screen_thread.start()
+    
+    def update_screen(self):
 
-    t0 = time.time()
-    while True:
-        agent.cur_img_grab = ImageGrab.grab()
-        agent.cur_img = np.array(agent.cur_img_grab)
-        agent.cur_img = cv.cvtColor(agent.cur_img, cv.COLOR_RGB2BGR)
-        agent.cur_imgHSV = cv.cvtColor(agent.cur_img, cv.COLOR_BGR2HSV)
-
-        # cv.imshow("Computer Vision", agent.cur_img)
-        key = cv.waitKey(1)
-        if key == ord("q"):
-            break
-        # print("FPS: " + str(1 / (time.time() - t0)))
         t0 = time.time()
+        ex_time = 0
 
+        while True:
+            self.cur_img_grab = ImageGrab.grab()
+            self.cur_img = np.array(self.cur_img_grab)
+            self.cur_img = cv.cvtColor(self.cur_img, cv.COLOR_RGB2BGR)
+            self.cur_imgHSV = cv.cvtColor(self.cur_img, cv.COLOR_BGR2HSV)
 
-def print_menu():
-    print("Enter a command:")
-    print("\tS\tStart the main agent")
-    print("\tZ\tSet the zone")
-    print("\tF\tStart the fishing agent")
-    print("\tQ\tQuit")
+            self.zone = map_reader.get_cur_zone(self.cur_img)
+            self.zone = self.zone.lower().strip()
+            self.cur_time = map_reader.get_cur_time()
 
+            ex_time = time.time() - t0
+            self.fps = str(round(1 / ex_time))
+            t0 = time.time()
+
+    def start_fishing(self):
+        if self.fishing_agent and self.fishing_agent.fishing_thread.is_alive():
+            print("Fishing is already running!")
+            return
+        self.fishing_agent = FishingAgent(self)  # Create a new FishingAgent
+        self.fishing_agent.run()
+
+    def stop_fishing(self):
+        if self.fishing_agent:
+            print("Stopping fishing agent...")
+            self.fishing_agent.stop_fishing()
+            self.fishing_agent = None  # Reset the fishing agent
+            print("Fishing agent stopped and reset.")
 
 if __name__ == "__main__":
     main_agent = MainAgent()
-
-    print_menu()
-    while True:
-        user_input = input()
-        user_input = str.lower(user_input).strip()
-
-        if user_input == "s":
-            update_screen_thread = Thread(
-                target=update_screen,
-                args=(main_agent,),
-                name="update screen thread",
-                daemon=True)
-            update_screen_thread.start()
-            print("Update screen thread started")
-
-        elif user_input == "z":
-            pass
-
-        elif user_input == "f":
-            fishing_agent = FishingAgent(main_agent)
-            fishing_agent.run()
-
-        elif user_input == "q":
-            break
-
-        else:
-            print("Input error")
-            print_menu()
-
-    print("Done")
-
-
+    app = FishingApp(main_agent)

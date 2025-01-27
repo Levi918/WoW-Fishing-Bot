@@ -2,6 +2,7 @@ import cv2 as cv
 import numpy as np
 import pyautogui
 import time
+import threading
 from threading import Thread
 import os
 
@@ -15,11 +16,13 @@ class FishingAgent:
         self.fishing_target = cv.imread(
             os.path.join(
                 here_path,
-                "assets", "fishing_target1.png"
+                "assets", "bobber.png"
             )
         )
 
         self.fishing_thread = None
+        self.stop_event = threading.Event()
+        self.is_preparing = False
 
 
     def cast_lure(self):
@@ -27,7 +30,7 @@ class FishingAgent:
         self.fishing = True
         self.cast_time = time.time()
         pyautogui.press('1')
-        time.sleep(3)
+        time.sleep(1)
         self.find_lure()
 
 
@@ -41,7 +44,7 @@ class FishingAgent:
 
     def move_to_lure(self):
         if self.lure_location:
-            pyautogui.moveTo(self.lure_location[0], self.lure_location[1], .45, pyautogui.easeOutQuad)
+            pyautogui.moveTo(self.lure_location[0], self.lure_location[1], .2)
             self.watch_lure()
         else:
             print("Warning: Attempted to move to lure_location, but lure_location is None (fishing_agent.py line 32)")
@@ -50,14 +53,10 @@ class FishingAgent:
 
     def watch_lure(self):
         time_start = time.time()
-        while True:
+        while not self.stop_event.is_set():
             pixel = self.main_agent.cur_imgHSV[self.lure_location[1]][self.lure_location[0]]
-            if self.main_agent.zone == "Dustwallow":
-                if pixel[0] >= 20 or pixel[1] < 60 or pixel[2] < 40 or time.time() - time_start >= 30:
-                    print("Bite detected!")
-                    break
-            elif self.main_agent.zone == "Feralas" and self.main_agent.time == "night":
-                if pixel[0] <= 70 or pixel[1] <= 100 or pixel[2] <= 70:
+            if self.main_agent.zone == "orgrimmar" and self.main_agent.cur_time == "Night":
+                if pixel[0] <= 30 or pixel[1] <= 50 or pixel[2] <= 30:
                     print("Bite detected!")
                     print(pixel)
                     time.sleep(1)
@@ -65,20 +64,34 @@ class FishingAgent:
                 if time.time() - time_start >= 30:
                     print("Fishing timeout!")
                     break
-            elif self.main_agent.zone == "Dustwallow":
-                print("Feralas")
-                if pixel[0] >= 60 or time.time() - time_start >= 30:
+            elif self.main_agent.zone == "orgrimmar" and self.main_agent.cur_time == "Day":
+                if pixel[0] <= 50 or pixel[1] <= 50 or pixel[2] <= 50:
                     print("Bite detected!")
+                    print(pixel)
+                    time.sleep(1)
+                    break
+                if time.time() - time_start >= 30:
+                    print("Fishing timeout!")
+                    break
+            elif self.main_agent.zone == "Barrens" and self.main_agent.cur_time == "Night":
+                if pixel[0] <= 50:
+                    print("Bite detected!")
+                    print(pixel)
+                    time.sleep(1)
+                    break
+                if time.time() - time_start >= 30:
+                    print("Fishing timeout!")
                     break
             print(pixel)
-        self.pull_line()
+        if not self.stop_event.is_set():  # Only pull the line if not stopping
+            self.pull_line()
 
 
     def pull_line(self):
         pyautogui.rightClick()
-        # os.system("sh -c 'xdotool keydown Shift_L; sleep 0.1; xdotool mousedown 3; sleep 0.1; xdotool mouseup 3; sleep 0.1; xdotool keyup Shift_L; sleep 0.1'")
         time.sleep(1)
-        self.run()
+        if not self.stop_event.is_set():
+            self.run()
 
 
     def run(self):
@@ -88,11 +101,12 @@ class FishingAgent:
         print("Starting fishing thread in 3 seconds...")
         time.sleep(3)
 
-        # print("Switching to fishing hotbar (hotbar 4)")
-        # pyautogui.keyDown('shift')
-        # pyautogui.press('4')
-        # pyautogui.keyUp('shift')
-        # time.sleep(1)
+        if self.stop_event.is_set():
+            print("Fishing preparation stopped.")
+            self.is_preparing = False
+            return
+
+        self.stop_event.clear()  # Reset the stop_fishing event
 
         self.fishing_thread = Thread(
             target=self.cast_lure,
@@ -100,3 +114,19 @@ class FishingAgent:
             name="fishing thread",
             daemon=True)
         self.fishing_thread.start()
+        self.is_preparing = False  # Reset preparing flag
+
+    def stop_fishing(self):
+        print("Stopping fishing thread...")
+        self.stop_event.set()  # Signal the thread to stop
+
+        # If the agent is in the preparation phase, wait for it to finish
+        if self.is_preparing:
+            print("Waiting for preparation to finish...")
+            while self.is_preparing:
+                time.sleep(0.1)
+
+        # Stop the fishing thread if it exists and is running
+        if self.fishing_thread and self.fishing_thread.is_alive():
+            self.fishing_thread.join()  # Wait for the thread to finish
+        print("Fishing thread stopped.")
